@@ -9,9 +9,9 @@ from exceptions import ObjectNotSavedException, ResourceNotAvailableException
 from django_pipes import debug_stats
 
 if hasattr(settings, "PIPES_CACHE_EXPIRY"):
-    cache_expiry = settings.PIPES_CACHE_EXPIRY
+    default_cache_expiry = settings.PIPES_CACHE_EXPIRY
 else:
-    cache_expiry = 60
+    default_cache_expiry = 60
 
 # set default socket timeout; otherwise urllib2 requests could block forever.
 if hasattr(settings, "PIPES_SOCKET_TIMEOUT"):
@@ -68,11 +68,14 @@ class PipeManager(object):
         params - a dict of (key,value) pairs which are encoded into HTTP GET params 
                  and appended to the URI provided on the Pipe class.
         should_cache - should response be cached after fetching?
+        cache_expiry - how long (in seconds) should response be cached?
+                       Default is pipe.cache_expiry or settings.PIPES_CACHE_EXPIRY,
+                       or 60 seconds.
     """
     def _set_pipe(self, pipe):
         self.pipe = pipe
 
-    def filter(self, params, should_cache=None, retries=None):
+    def filter(self, params, should_cache=None, cache_expiry=None, retries=None):
         if hasattr(self.pipe, 'uri'):
             
             # should cache or not?
@@ -130,6 +133,11 @@ class PipeManager(object):
                         
                 resp = respObj.read()
                 if should_cache:
+                    if cache_expiry is None:
+                        if hasattr(self.pipe, 'cache_expiry'):
+                            cache_expiry = self.pipe.cache_expiry
+                        else:
+                            cache_expiry = default_cache_expiry
                     cache.set(url_string, resp, cache_expiry)
                 stop = time()
                 debug_stats.record_query(url_string, retries=attempts-1, time=stop-start)
@@ -139,15 +147,15 @@ class PipeManager(object):
         else:
             return PipeResultSet(self.pipe, [])
 
-    def get(self, params={}, should_cache=None, retries=None):
-        rs = self.filter(params, should_cache, retries)
+    def get(self, params={}, should_cache=None, cache_expiry=None, retries=None):
+        rs = self.filter(params, should_cache, cache_expiry, retries)
         if rs:
             return rs[0]
         else:
             return None
 
-    def all(self, should_cache=None, retries=None):
-        return self.filter({}, should_cache, retries)
+    def all(self, should_cache=None, cache_expiry=None, retries=None):
+        return self.filter({}, should_cache, cache_expiry, retries)
 
     def _save(self, obj):
         "Makes a POST request to the given URI with the POST params set to the given object's attributes."

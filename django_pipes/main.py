@@ -41,7 +41,7 @@ def _objectify_json(i):
     if isinstance(i, dict):
         transformed_dict = JSONDict()
         for key, val in i.iteritems():
-            transformed_dict[key] = i[key] = _objectify_json(val)
+            transformed_dict[key] = _objectify_json(val)
         return transformed_dict
     elif isinstance(i, list):
         for idx in range(len(i)):
@@ -125,7 +125,6 @@ class PipeManager(object):
                     except urllib2.URLError, e:
                         if attempts <= retries:
                             continue
-                            t1 = time() # reset time
                         else: 
                             stop = time()
                             debug_stats.record_query(url_string, failed=True, retries=attempts-1, time=stop-start)
